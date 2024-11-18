@@ -8,6 +8,16 @@ from .utils import (lalsim_GetApproximantFromString,
                     lalsim_SimInspiralChooseFDWaveform,
                     lalsim_SimInspiralChooseFDWaveformSequence)
 
+try:
+    from phenomxpy.phenomxe import PhenomXE
+except:
+    pass
+
+try:
+    from phenomxpy.phenomtehm_model import IMRPhenomTEHM
+except:
+    pass
+
 UNUSED_KWARGS_MESSAGE = """There are unused waveform kwargs. This is deprecated behavior and will
 result in an error in future releases. Make sure all of the waveform kwargs are correctly
 spelled.
@@ -533,10 +543,123 @@ def set_waveform_dictionary(waveform_kwargs, lambda_1=0, lambda_2=0):
     return waveform_dictionary
 
 
+def lal_eccentric_nonprecessing_binary_black_hole(
+        frequency_array, mass_1, mass_2, luminosity_distance, chi_1, chi_2,
+        theta_jn=0.0, phase=0.0,  eccentricity=0.0, mean_anomaly=0.0,
+         **kwargs):
+    """ A Binary Black Hole waveform model using lalsimulation
+
+    Parameters
+    ----------
+    frequency_array: array_like
+        The frequencies at which we want to calculate the strain
+    mass_1: float
+        The mass of the heavier object in solar masses
+    mass_2: float
+        The mass of the lighter object in solar masses
+    luminosity_distance: float
+        The luminosity distance in megaparsec
+    chi_1: float
+        Dimensionless primary spin magnitude
+    chi_2: float
+        Dimensionless secondary spin magnitude
+    theta_jn: float
+        Angle between the total binary angular momentum and the line of sight
+    phase: float
+        The phase at coalescence
+    eccentricity: float
+        The eccentricity at fref
+    mean_anomaly: float
+        The mean_anomaly at fref
+    kwargs: dict
+        Optional keyword arguments
+        Supported arguments:
+            waveform_approximant
+            reference_frequency
+            minimum_frequency
+            maximum_frequency
+            catch_waveform_errors
+            pn_spin_order
+            pn_tidal_order
+            pn_phase_order
+            pn_amplitude_order
+            mode_array:
+                Activate a specific mode array and evaluate the model using those
+                modes only.  e.g. waveform_arguments =
+                dict(waveform_approximant='IMRPhenomHM', mode_array=[[2,2],[2,-2])
+                returns the 22 and 2-2 modes only of IMRPhenomHM.  You can only
+                specify modes that are included in that particular model.  e.g.
+                waveform_arguments = dict(waveform_approximant='IMRPhenomHM',
+                mode_array=[[2,2],[2,-2],[5,5],[5,-5]]) is not allowed because the
+                55 modes are not included in this model.  Be aware that some models
+                only take positive modes and return the positive and the negative
+                mode together, while others need to call both.  e.g.
+                waveform_arguments = dict(waveform_approximant='IMRPhenomHM',
+                mode_array=[[2,2],[4,-4]]) returns the 22 and 2-2 of IMRPhenomHM.
+                However, waveform_arguments =
+                dict(waveform_approximant='IMRPhenomXHM', mode_array=[[2,2],[4,-4]])
+                returns the 22 and 4-4 of IMRPhenomXHM.
+            phenomXHMMband: Threshold for the multibanding algorithm in IMRPhenomXHM.
+                If option not specified use 10^-3. If set to 0 then multibanding is disabled.
+            phenomXPHMMband: Threshold for the multibanding algorithm for the Euler angles in IMRPhenomXPHM.
+                If option not specified use 0. If set to 0 then multibanding is disabled.
+            phenomXPrecVersion: Version for the Euler angles of the twisting-up in IMRPhenomXP/IMRPhenomXPHM.
+                101 : NNLO PN Euler angles and a 2PN non-spinning approximation to L
+                102 : NNLO PN Euler angles and a 3PN spinning approximation to L
+                103 : NNLO PN Euler angles and a 4PN spinning approximation to L
+                104 : same than 103 augmented with leading PN order at all order in spin terms.
+                220 : MSA Euler angles and a 3PN spinning approximation to L. Falls back to NNLO angles in case of fail.
+                221 : MSA Euler angles and a 3PN spinning approximation to L. Throw an error message in case of fail.
+            phenomXPConvention: Version for computing the offsets of the Euler Angles.
+                2: recover aligned spin limit.
+                7: PhenomPv3HM style needs to optimize to recover aligned spin limit.
+            phenomXPFinalSpinMod: Version for the final spin in the precessing waveform.
+                0: use chip
+                1: use chi1x
+                2: use chi_perp
+            phenomXPHMTwistPhenomHM: Twist PhenomHM instead of PhenomXHM
+                0: twist PhenomXHM
+                1: twist PhenomHM
+            numerical_relativity_file: path to LVC Numerical Relativity Simulations
+                                       (h5 files, https://git.ligo.org/waveforms/lvcnr-lfs)
+
+    Returns
+    -------
+    dict: A dictionary with the plus and cross polarisation strain modes
+    """
+    
+    waveform_kwargs = dict(
+        waveform_approximant='IMRPhenomXEpy', reference_frequency=20.0,
+        minimum_frequency=20.0, maximum_frequency=frequency_array[-1],
+        catch_waveform_errors=False, pn_spin_order=-1, pn_tidal_order=-1,
+        pn_phase_order=-1, pn_amplitude_order=0)
+    waveform_kwargs.update(kwargs)
+
+    if np.sign(chi_1)==-1:
+        tilt_1 = np.pi
+    else:
+        tilt_1 = 0.
+
+    if np.sign(chi_2)==-1:
+        tilt_2 = np.pi
+    else:
+        tilt_2 = 0.
+    a_1 = abs(chi_1)
+    a_2 = abs(chi_2)
+
+    #print(mass_1, mass_2, luminosity_distance, theta_jn, phase, chi_1, chi_2, eccentricity, mean_anomaly)
+    return _base_lal_cbc_fd_waveform(
+        frequency_array=frequency_array, mass_1=mass_1, mass_2=mass_2,
+        luminosity_distance=luminosity_distance, theta_jn=theta_jn, phase=phase,
+        a_1=a_1, a_2=a_2, tilt_1=tilt_1, tilt_2=tilt_2, phi_12=0.,
+        eccentricity=eccentricity, mean_anomaly=mean_anomaly,
+        **waveform_kwargs)
+
+
 def _base_lal_cbc_fd_waveform(
         frequency_array, mass_1, mass_2, luminosity_distance, theta_jn, phase,
         a_1=0.0, a_2=0.0, tilt_1=0.0, tilt_2=0.0, phi_12=0.0, phi_jl=0.0,
-        lambda_1=0.0, lambda_2=0.0, eccentricity=0.0, **waveform_kwargs):
+        lambda_1=0.0, lambda_2=0.0, eccentricity=0.0,  mean_anomaly = 0.0, **waveform_kwargs):
     """ Generate a cbc waveform model using lalsimulation
 
     Parameters
@@ -579,6 +702,9 @@ def _base_lal_cbc_fd_waveform(
     dict: A dictionary with the plus and cross polarisation strain modes
     """
     import lalsimulation as lalsim
+    import lal 
+    import astropy.units as u
+    
 
     waveform_approximant = waveform_kwargs.pop('waveform_approximant')
     reference_frequency = waveform_kwargs.pop('reference_frequency')
@@ -589,6 +715,11 @@ def _base_lal_cbc_fd_waveform(
 
     waveform_dictionary = set_waveform_dictionary(waveform_kwargs, lambda_1, lambda_2)
     approximant = lalsim_GetApproximantFromString(waveform_approximant)
+
+    if 'IMRPhenomXE' in waveform_approximant or 'IMRPhenomTE' in waveform_approximant:
+        approximant = waveform_approximant
+    else:
+        approximant = lalsim_GetApproximantFromString(waveform_approximant)
 
     if pn_amplitude_order != 0:
         start_frequency = lalsim.SimInspiralfLow2fStart(
@@ -613,18 +744,100 @@ def _base_lal_cbc_fd_waveform(
 
     longitude_ascending_nodes = 0.0
     mean_per_ano = 0.0
-
-    if lalsim.SimInspiralImplementedFDApproximants(approximant):
-        wf_func = lalsim_SimInspiralChooseFDWaveform
+    
+    if 'IMRPhenomXE' in approximant or 'IMRPhenomTE' in approximant:
+        wf_func = None
     else:
-        wf_func = lalsim_SimInspiralFD
+        if lalsim.SimInspiralImplementedFDApproximants(approximant):
+            wf_func = lalsim_SimInspiralChooseFDWaveform
+        else:
+            wf_func = lalsim_SimInspiralFD
+    
     try:
-        hplus, hcross = wf_func(
-            mass_1, mass_2, spin_1x, spin_1y, spin_1z, spin_2x, spin_2y,
-            spin_2z, luminosity_distance, iota, phase,
-            longitude_ascending_nodes, eccentricity, mean_per_ano, delta_frequency,
-            start_frequency, maximum_frequency, reference_frequency,
-            waveform_dictionary, approximant)
+
+        if 'IMRPhenomXE' in approximant:
+                        
+            eta = mass_1*mass_2/(mass_1+mass_2)**2.
+            dMpc = luminosity_distance/(1e6*lal.PC_SI)
+            total_mass = (mass_1 + mass_2)/lal.MSUN_SI
+            f_min = start_frequency
+            f_ref = reference_frequency
+            f_max = maximum_frequency
+            phi_ref = phase
+            inclination = theta_jn
+            delta_f_Hz = delta_frequency
+            
+            chi_1 = a_1*np.cos(tilt_1)
+            chi_2 = a_2*np.cos(tilt_2)
+            
+            #print(eta, [0.,0.,chi_1], [0.,0.,chi_2], eccentricity, mean_anomaly)
+            #print(total_mass, f_min, f_max, f_ref)
+            #print(phi_ref, inclination)
+            #print(dMpc)
+            #print(delta_f_Hz)
+            settings ={}
+            settings.update(waveform_kwargs)
+            
+            wfXE = PhenomXE(eta, [0.,0.,chi_1], [0.,0.,chi_2], eccentricity, mean_anomaly,
+                total_mass,
+                f_min, f_max, f_ref, phi_ref, inclination, dMpc, delta_f_Hz, settings=settings ) 
+            
+            hplus,hcross = wfXE.get_polarizations()
+            
+        elif 'IMRPhenomTE' in approximant:
+            eta = mass_1*mass_2/(mass_1+mass_2)**2.
+            dMpc = luminosity_distance/(1e6*lal.PC_SI)
+            total_mass = (mass_1 + mass_2)/lal.MSUN_SI
+            f_min = start_frequency
+            f_ref = reference_frequency
+            f_max = maximum_frequency
+            phi_ref = phase
+            inclination = theta_jn
+            delta_f_Hz = delta_frequency 
+            
+            chi_1 = a_1*np.cos(tilt_1)
+            chi_2 = a_2*np.cos(tilt_2)
+
+            if 'PhenomTEHM' in approximant:
+                modes = [[2,2],[2,1],[3,3],[4,4],[5,5],[2,-2],[2,-1],[3,-3],[4,-4],[5,-5]]
+            else:
+                modes = [[2,2],[2,-2]]
+                
+            m1 = mass_1/lal.MSUN_SI
+            m2 = mass_2/lal.MSUN_SI
+            dMpc = luminosity_distance/(1e6*lal.PC_SI)
+            total_mass = (mass_1 + mass_2)/lal.MSUN_SI
+            
+            default_dict = {'mass1' : m1 * u.solMass,
+                    'mass2' : m2 * u.solMass,
+                    'spin1x' : spin_1x * u.dimensionless_unscaled,
+                    'spin1y' : spin_1y * u.dimensionless_unscaled,
+                    'spin1z' : spin_1z * u.dimensionless_unscaled,
+                    'spin2x' : spin_2x * u.dimensionless_unscaled,
+                    'spin2y' : spin_2y * u.dimensionless_unscaled,
+                    'spin2z' : spin_2z * u.dimensionless_unscaled,
+                    'deltaF' : delta_frequency * u.Hz,
+                    'f22_start' : start_frequency * u.Hz,
+                    'f_max': maximum_frequency * u.Hz,
+                    'f22_ref': reference_frequency * u.Hz,
+                    'phi_ref' : phase * u.rad,
+                    'distance' : dMpc * u.Mpc,
+                    'inclination' : iota * u.rad,
+                    'eccentricity' : eccentricity * u.dimensionless_unscaled,
+                    'longAscNodes' : longitude_ascending_nodes * u.rad,
+                    'meanPerAno' : mean_anomaly * u.rad,
+                    'mode_array': modes#,mode_array,
+            }
+            wfTE = IMRPhenomTEHM(default_dict)
+            hplus, hcross =  wfTE.generate_fd_waveform()
+
+        else:
+            hplus, hcross = wf_func(
+                mass_1, mass_2, spin_1x, spin_1y, spin_1z, spin_2x, spin_2y,
+                spin_2z, luminosity_distance, iota, phase,
+                longitude_ascending_nodes, eccentricity, mean_per_ano, delta_frequency,
+                start_frequency, maximum_frequency, reference_frequency,
+                waveform_dictionary, approximant)
     except Exception as e:
         if not catch_waveform_errors:
             raise
