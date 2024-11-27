@@ -715,7 +715,6 @@ def _base_lal_cbc_fd_waveform(
     pn_amplitude_order = waveform_kwargs['pn_amplitude_order']
 
     waveform_dictionary = set_waveform_dictionary(waveform_kwargs, lambda_1, lambda_2)
-    approximant = lalsim_GetApproximantFromString(waveform_approximant)
 
     if 'IMRPhenomXE' in waveform_approximant or 'IMRPhenomTE' in waveform_approximant:
         approximant = waveform_approximant
@@ -831,6 +830,7 @@ def _base_lal_cbc_fd_waveform(
             wfTE = IMRPhenomTEHM(default_dict)
             hplus, hcross =  wfTE.generate_fd_waveform()
             
+            
         else:
             
             hplus, hcross = wf_func(
@@ -862,16 +862,30 @@ def _base_lal_cbc_fd_waveform(
     h_plus = np.zeros_like(frequency_array, dtype=complex)
     h_cross = np.zeros_like(frequency_array, dtype=complex)
 
-    if len(hplus.data.data) > len(frequency_array):
-        logger.debug("LALsim waveform longer than bilby's `frequency_array`" +
-                     "({} vs {}), ".format(len(hplus.data.data), len(frequency_array)) +
-                     "probably because padded with zeros up to the next power of two length." +
-                     " Truncating lalsim array.")
-        h_plus = hplus.data.data[:len(h_plus)]
-        h_cross = hcross.data.data[:len(h_cross)]
+    if 'IMRPhenomXE' in approximant or 'IMRPhenomTE' in approximant:
+        if len(hplus) > len(frequency_array):
+            logger.debug("LALsim waveform longer than bilby's `frequency_array`" +
+                        "({} vs {}), ".format(len(hplus), len(frequency_array)) +
+                        "probably because padded with zeros up to the next power of two length." +
+                        " Truncating lalsim array.")
+            h_plus = hplus[:len(h_plus)]
+            h_cross = hcross[:len(h_cross)]
+        else:
+            h_plus[:len(hplus)] = hplus
+            h_cross[:len(hcross)] = hcross
+    
     else:
-        h_plus[:len(hplus.data.data)] = hplus.data.data
-        h_cross[:len(hcross.data.data)] = hcross.data.data
+
+        if len(hplus.data.data) > len(frequency_array):
+            logger.debug("LALsim waveform longer than bilby's `frequency_array`" +
+                        "({} vs {}), ".format(len(hplus.data.data), len(frequency_array)) +
+                        "probably because padded with zeros up to the next power of two length." +
+                        " Truncating lalsim array.")
+            h_plus = hplus.data.data[:len(h_plus)]
+            h_cross = hcross.data.data[:len(h_cross)]
+        else:
+            h_plus[:len(hplus.data.data)] = hplus.data.data
+            h_cross[:len(hcross.data.data)] = hcross.data.data
 
     h_plus *= frequency_bounds
     h_cross *= frequency_bounds
