@@ -130,8 +130,6 @@ class TestGWSignalBBH(unittest.TestCase):
             phi_jl=2.9,
             theta_jn=0.3,
             phase=0.0,
-            eccentricity=0,
-            mean_per_ano=0,
         )
         self.waveform_kwargs = dict(
             waveform_approximant="IMRPhenomXPHM",
@@ -232,11 +230,11 @@ class TestGWSignalBBH(unittest.TestCase):
 
                     parameters = self.parameters.copy()
                     parameters["waveform_approximant"] = "SEOBNRv5PHM"
-                    parameters.update(self.waveform_kwargs)
+                    parameters.update(self.waveform_kwargs | {"eccentricity": 0, "mean_per_ano": 0})
                     parameters[current_param] = random.uniform(0, 0.3)
 
                     with self.assertRaises(MyException):
-                        bilby.gw.source.gwsignal_binary_black_hole(
+                        bilby.gw.source.gwsignal_eccentric_binary_black_hole(
                             self.frequency_array, **parameters
                         )
 
