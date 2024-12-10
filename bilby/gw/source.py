@@ -16,8 +16,22 @@ Unused waveform_kwargs: {waveform_kwargs}
 """
 
 
-def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_distance, a_1, tilt_1,
-                               phi_12, a_2, tilt_2, phi_jl, theta_jn, phase, eccentricity, mean_per_ano, **kwargs):
+def _base_gwsignal_binary_black_hole(
+        frequency_array,
+        mass_1,
+        mass_2,
+        luminosity_distance,
+        a_1,
+        tilt_1,
+        phi_12,
+        a_2,
+        tilt_2,
+        phi_jl,
+        theta_jn,
+        phase,
+        eccentricity,
+        mean_per_ano,
+        **kwargs):
     """
     A binary black hole waveform model using GWsignal
 
@@ -252,6 +266,62 @@ def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_dista
         h_cross[frequency_bounds] *= time_shift
 
     return dict(plus=h_plus, cross=h_cross)
+
+
+def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_distance, a_1, tilt_1,
+                               phi_12, a_2, tilt_2, phi_jl, theta_jn, phase, **kwargs):
+
+    return _base_gwsignal_binary_black_hole(
+        frequency_array=frequency_array,
+        mass_1=mass_1,
+        mass_2=mass_2,
+        luminosity_distance=luminosity_distance,
+        a_1=a_1,
+        tilt_1=tilt_1,
+        phi_12=phi_12,
+        a_2=a_2,
+        tilt_2=tilt_2,
+        phi_jl=phi_jl,
+        theta_jn=theta_jn,
+        phase=phase,
+        eccentricity=0,
+        mean_per_ano=0,
+        **kwargs)
+
+
+def gwsignal_eccentric_binary_black_hole(
+        frequency_array,
+        mass_1,
+        mass_2,
+        luminosity_distance,
+        a_1,
+        tilt_1,
+        phi_12,
+        a_2,
+        tilt_2,
+        phi_jl,
+        theta_jn,
+        phase,
+        eccentricity,
+        mean_per_ano,
+        **kwargs):
+
+    return _base_gwsignal_binary_black_hole(
+        frequency_array=frequency_array,
+        mass_1=mass_1,
+        mass_2=mass_2,
+        luminosity_distance=luminosity_distance,
+        a_1=a_1,
+        tilt_1=tilt_1,
+        phi_12=phi_12,
+        a_2=a_2,
+        tilt_2=tilt_2,
+        phi_jl=phi_jl,
+        theta_jn=theta_jn,
+        phase=phase,
+        eccentricity=eccentricity,
+        mean_per_ano=mean_per_ano,
+        **kwargs)
 
 
 def lal_binary_black_hole(
