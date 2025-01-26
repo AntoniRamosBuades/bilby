@@ -5,7 +5,7 @@ import sys
 import os
 
 python_version = sys.version_info
-if python_version < (3, 10):
+if python_version < (3, 8):
     sys.exit("Python < 3.10 is not supported, aborting setup")
 
 
