@@ -715,12 +715,15 @@ def _base_lal_cbc_fd_waveform(
     pn_amplitude_order = waveform_kwargs['pn_amplitude_order']
 
     waveform_dictionary = set_waveform_dictionary(waveform_kwargs, lambda_1, lambda_2)
-
+    #if isinstance(waveform_approximant,str):
+    print(f"waveform_approximant = {waveform_approximant}")
     if 'IMRPhenomXE' in waveform_approximant or 'IMRPhenomTE' in waveform_approximant:
         approximant = waveform_approximant
+        #else:
+        #    raise ValueError(f"Waveform approximant = {waveform_approximant} not implemented.")
     else:
         approximant = lalsim_GetApproximantFromString(waveform_approximant)
-
+    print(f"approximant = {approximant}")
     if pn_amplitude_order != 0:
         start_frequency = lalsim.SimInspiralfLow2fStart(
             float(minimum_frequency), int(pn_amplitude_order), approximant
@@ -744,70 +747,71 @@ def _base_lal_cbc_fd_waveform(
 
     longitude_ascending_nodes = 0.0
     mean_per_ano = 0.0
-        
-    if 'IMRPhenomXE' in approximant or 'IMRPhenomTE' in approximant:
-        wf_func = None
+    if isinstance(approximant,str):
+        if 'IMRPhenomXE' in approximant or 'IMRPhenomTE' in approximant:
+            wf_func = None
     else:
         if lalsim.SimInspiralImplementedFDApproximants(approximant):
             wf_func = lalsim_SimInspiralChooseFDWaveform
         else:
             wf_func = lalsim_SimInspiralFD
     try:
-        if 'IMRPhenomXE' in approximant:
+        if isinstance(approximant,str):
+            if 'IMRPhenomXE' in approximant:
                             
-            eta = mass_1*mass_2/(mass_1+mass_2)**2.
-            dMpc = luminosity_distance/(1e6*lal.PC_SI)
-            total_mass = (mass_1 + mass_2)/lal.MSUN_SI
-            f_min = start_frequency
-            f_ref = reference_frequency
-            f_max = maximum_frequency
-            phi_ref = phase
-            inclination = theta_jn
-            delta_f_Hz = delta_frequency
+                eta = mass_1*mass_2/(mass_1+mass_2)**2.
+                dMpc = luminosity_distance/(1e6*lal.PC_SI)
+                total_mass = (mass_1 + mass_2)/lal.MSUN_SI
+                f_min = start_frequency
+                f_ref = reference_frequency
+                f_max = maximum_frequency
+                phi_ref = phase
+                inclination = theta_jn
+                delta_f_Hz = delta_frequency
             
-            chi_1 = a_1*np.cos(tilt_1)
-            chi_2 = a_2*np.cos(tilt_2)
+                chi_1 = a_1*np.cos(tilt_1)
+                chi_2 = a_2*np.cos(tilt_2)
             
-            #print(eta, [0.,0.,chi_1], [0.,0.,chi_2], eccentricity, mean_anomaly)
-            #print(total_mass, f_min, f_max, f_ref)
-            #print(phi_ref, inclination)
-            #print(dMpc)
-            #print(delta_f_Hz)
-            settings ={}
-            settings.update(waveform_kwargs)
+                #print(eta, [0.,0.,chi_1], [0.,0.,chi_2], eccentricity, mean_anomaly)
+                #print(total_mass, f_min, f_max, f_ref)
+                #print(phi_ref, inclination)
+                #print(dMpc)
+                #print(delta_f_Hz)
+                settings ={}
+                settings.update(waveform_kwargs)
             
-            wfXE = PhenomXE(eta, [0.,0.,chi_1], [0.,0.,chi_2], eccentricity, mean_anomaly,
+                wfXE = PhenomXE(eta, [0.,0.,chi_1], [0.,0.,chi_2], eccentricity, mean_anomaly,
                 total_mass,
                 f_min, f_max, f_ref, phi_ref, inclination, dMpc, delta_f_Hz, settings=settings ) 
             
-            hplus,hcross = wfXE.get_polarizations()
+                hplus,hcross = wfXE.get_polarizations()
                 
-        elif 'IMRPhenomTE' in approximant:
+            elif 'IMRPhenomTE' in approximant:
             
-            eta = mass_1*mass_2/(mass_1+mass_2)**2.
-            dMpc = luminosity_distance/(1e6*lal.PC_SI)
-            total_mass = (mass_1 + mass_2)/lal.MSUN_SI
-            f_min = start_frequency
-            f_ref = reference_frequency
-            f_max = maximum_frequency
-            phi_ref = phase
-            inclination = theta_jn
-            delta_f_Hz = delta_frequency 
+                eta = mass_1*mass_2/(mass_1+mass_2)**2.
+                dMpc = luminosity_distance/(1e6*lal.PC_SI)
+                total_mass = (mass_1 + mass_2)/lal.MSUN_SI
+                f_min = start_frequency
+                f_ref = reference_frequency
+                f_max = maximum_frequency
+                phi_ref = phase
+                inclination = theta_jn
+                delta_f_Hz = delta_frequency 
             
-            chi_1 = a_1*np.cos(tilt_1)
-            chi_2 = a_2*np.cos(tilt_2)
+                chi_1 = a_1*np.cos(tilt_1)
+                chi_2 = a_2*np.cos(tilt_2)
 
-            if 'PhenomTEHM' in approximant:
-                modes = [[2,2],[2,1],[3,3],[4,4],[5,5],[2,-2],[2,-1],[3,-3],[4,-4],[5,-5]]
-            else:
-                modes = [[2,2],[2,-2]]
+                if 'PhenomTEHM' in approximant:
+                    modes = [[2,2],[2,1],[3,3],[4,4],[5,5],[2,-2],[2,-1],[3,-3],[4,-4],[5,-5]]
+                else:
+                    modes = [[2,2],[2,-2]]
                 
-            m1 = mass_1/lal.MSUN_SI
-            m2 = mass_2/lal.MSUN_SI
-            dMpc = luminosity_distance/(1e6*lal.PC_SI)
-            total_mass = (mass_1 + mass_2)/lal.MSUN_SI
+                m1 = mass_1/lal.MSUN_SI
+                m2 = mass_2/lal.MSUN_SI
+                dMpc = luminosity_distance/(1e6*lal.PC_SI)
+                total_mass = (mass_1 + mass_2)/lal.MSUN_SI
             
-            default_dict = {'mass1' : m1 * u.solMass,
+                default_dict = {'mass1' : m1 * u.solMass,
                     'mass2' : m2 * u.solMass,
                     'spin1x' : spin_1x * u.dimensionless_unscaled,
                     'spin1y' : spin_1y * u.dimensionless_unscaled,
@@ -827,8 +831,8 @@ def _base_lal_cbc_fd_waveform(
                     'meanPerAno' : mean_anomaly * u.rad,
                     'mode_array': modes#,mode_array,
                 }
-            wfTE = IMRPhenomTEHM(default_dict)
-            hplus, hcross =  wfTE.generate_fd_waveform()
+                wfTE = IMRPhenomTEHM(default_dict)
+                hplus, hcross =  wfTE.generate_fd_waveform()
             
             
         else:
@@ -839,6 +843,7 @@ def _base_lal_cbc_fd_waveform(
                 longitude_ascending_nodes, eccentricity, mean_anomaly, delta_frequency,
                 start_frequency, maximum_frequency, reference_frequency,
                 waveform_dictionary, approximant)
+
     except Exception as e:
         if not catch_waveform_errors:
             raise
@@ -861,19 +866,21 @@ def _base_lal_cbc_fd_waveform(
 
     h_plus = np.zeros_like(frequency_array, dtype=complex)
     h_cross = np.zeros_like(frequency_array, dtype=complex)
-
-    if 'IMRPhenomXE' in approximant or 'IMRPhenomTE' in approximant:
-        if len(hplus) > len(frequency_array):
-            logger.debug("LALsim waveform longer than bilby's `frequency_array`" +
+    
+    if isinstance(approximant,str):
+        if 'IMRPhenomXE' in approximant or 'IMRPhenomTE' in approximant:
+            if len(hplus) > len(frequency_array):
+                logger.debug("LALsim waveform longer than bilby's `frequency_array`" +
                         "({} vs {}), ".format(len(hplus), len(frequency_array)) +
                         "probably because padded with zeros up to the next power of two length." +
                         " Truncating lalsim array.")
-            h_plus = hplus[:len(h_plus)]
-            h_cross = hcross[:len(h_cross)]
+                h_plus = hplus[:len(h_plus)]
+                h_cross = hcross[:len(h_cross)]
+            else:
+                h_plus[:len(hplus)] = hplus
+                h_cross[:len(hcross)] = hcross
         else:
-            h_plus[:len(hplus)] = hplus
-            h_cross[:len(hcross)] = hcross
-    
+            raise ValueError(f"Model {approximant} not implemented")
     else:
 
         if len(hplus.data.data) > len(frequency_array):
