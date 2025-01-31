@@ -716,14 +716,14 @@ def _base_lal_cbc_fd_waveform(
 
     waveform_dictionary = set_waveform_dictionary(waveform_kwargs, lambda_1, lambda_2)
     #if isinstance(waveform_approximant,str):
-    print(f"waveform_approximant = {waveform_approximant}")
     if 'IMRPhenomXE' in waveform_approximant or 'IMRPhenomTE' in waveform_approximant:
         approximant = waveform_approximant
         #else:
         #    raise ValueError(f"Waveform approximant = {waveform_approximant} not implemented.")
     else:
         approximant = lalsim_GetApproximantFromString(waveform_approximant)
-    print(f"approximant = {approximant}")
+    
+    #print(f"approximant = {approximant}")
     if pn_amplitude_order != 0:
         start_frequency = lalsim.SimInspiralfLow2fStart(
             float(minimum_frequency), int(pn_amplitude_order), approximant
