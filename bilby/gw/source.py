@@ -6,7 +6,8 @@ from .conversion import bilby_to_lalsimulation_spins
 from .utils import (lalsim_GetApproximantFromString,
                     lalsim_SimInspiralFD,
                     lalsim_SimInspiralChooseFDWaveform,
-                    lalsim_SimInspiralChooseFDWaveformSequence)
+                    lalsim_SimInspiralChooseFDWaveformSequence,
+                    safe_cast_mode_to_int)
 
 UNUSED_KWARGS_MESSAGE = """There are unused waveform kwargs. This is deprecated behavior and will
 result in an error in future releases. Make sure all of the waveform kwargs are correctly
@@ -16,8 +17,22 @@ Unused waveform_kwargs: {waveform_kwargs}
 """
 
 
-def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_distance, a_1, tilt_1,
-                               phi_12, a_2, tilt_2, phi_jl, theta_jn, phase, **kwargs):
+def _base_gwsignal_binary_black_hole(
+        frequency_array,
+        mass_1,
+        mass_2,
+        luminosity_distance,
+        a_1,
+        tilt_1,
+        phi_12,
+        a_2,
+        tilt_2,
+        phi_jl,
+        theta_jn,
+        phase,
+        eccentricity,
+        mean_per_ano,
+        **kwargs):
     """
     A binary black hole waveform model using GWsignal
 
@@ -48,6 +63,10 @@ def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_dista
         Angle between the total binary angular momentum and the line of sight
     phase: float
         The phase at coalescence
+    eccentricity: float
+        Orbital eccentricity
+    mean_per_ano: float
+        Mean anomaly
     kwargs: dict
         Optional keyword arguments
         Supported arguments:
@@ -83,8 +102,8 @@ def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_dista
     =====
     This function is a temporary wrapper to the interface that will
     likely be significantly changed or removed in a future release.
-    This version is only intended to be used with `SEOBNRv5HM` and `SEOBNRv5PHM` and
-    does not have full functionality for other waveform models.
+    This version is only intended to be used with ``SEOBNRv5HM``, ``SEOBNRv5EHM``
+    and ``SEOBNRv5PHM`` and does not have full functionality for other waveform models.
     """
 
     from lalsimulation.gwsignal import GenerateFDWaveform
@@ -103,7 +122,7 @@ def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_dista
     waveform_kwargs.update(kwargs)
 
     waveform_approximant = waveform_kwargs['waveform_approximant']
-    if waveform_approximant not in ["SEOBNRv5HM", "SEOBNRv5PHM"]:
+    if waveform_approximant not in ["SEOBNRv5HM", "SEOBNRv5EHM", "SEOBNRv5PHM"]:
         if waveform_approximant == "IMRPhenomXPHM":
             logger.warning("The new waveform interface is unreviewed for this model" +
                            "and it is only intended for testing.")
@@ -141,9 +160,7 @@ def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_dista
         phi_12=phi_12, a_1=a_1, a_2=a_2, mass_1=mass_1 * utils.solar_mass, mass_2=mass_2 * utils.solar_mass,
         reference_frequency=reference_frequency, phase=phase)
 
-    eccentricity = 0.0
     longitude_ascending_nodes = 0.0
-    mean_per_ano = 0.0
 
     # Check if conditioning is needed
     condition = 0
@@ -174,6 +191,13 @@ def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_dista
                      }
 
     if mode_array is not None:
+        try:
+            mode_array = [tuple(map(safe_cast_mode_to_int, mode)) for mode in mode_array]
+        except (ValueError, TypeError) as e:
+            raise ValueError(
+                f"Unable to convert mode_array elements to tuples of ints. "
+                f"mode_array: {mode_array}, Error: {e}"
+            ) from e
         gwsignal_dict.update(ModeArray=mode_array)
 
     # Pass extra waveform arguments to gwsignal
@@ -250,6 +274,62 @@ def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_dista
         h_cross[frequency_bounds] *= time_shift
 
     return dict(plus=h_plus, cross=h_cross)
+
+
+def gwsignal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_distance, a_1, tilt_1,
+                               phi_12, a_2, tilt_2, phi_jl, theta_jn, phase, **kwargs):
+
+    return _base_gwsignal_binary_black_hole(
+        frequency_array=frequency_array,
+        mass_1=mass_1,
+        mass_2=mass_2,
+        luminosity_distance=luminosity_distance,
+        a_1=a_1,
+        tilt_1=tilt_1,
+        phi_12=phi_12,
+        a_2=a_2,
+        tilt_2=tilt_2,
+        phi_jl=phi_jl,
+        theta_jn=theta_jn,
+        phase=phase,
+        eccentricity=0,
+        mean_per_ano=0,
+        **kwargs)
+
+
+def gwsignal_eccentric_binary_black_hole(
+        frequency_array,
+        mass_1,
+        mass_2,
+        luminosity_distance,
+        a_1,
+        tilt_1,
+        phi_12,
+        a_2,
+        tilt_2,
+        phi_jl,
+        theta_jn,
+        phase,
+        eccentricity,
+        mean_per_ano,
+        **kwargs):
+
+    return _base_gwsignal_binary_black_hole(
+        frequency_array=frequency_array,
+        mass_1=mass_1,
+        mass_2=mass_2,
+        luminosity_distance=luminosity_distance,
+        a_1=a_1,
+        tilt_1=tilt_1,
+        phi_12=phi_12,
+        a_2=a_2,
+        tilt_2=tilt_2,
+        phi_jl=phi_jl,
+        theta_jn=theta_jn,
+        phase=phase,
+        eccentricity=eccentricity,
+        mean_per_ano=mean_per_ano,
+        **kwargs)
 
 
 def lal_binary_black_hole(
@@ -509,7 +589,7 @@ def set_waveform_dictionary(waveform_kwargs, lambda_1=0, lambda_2=0):
     waveform_dictionary = waveform_kwargs.pop('lal_waveform_dictionary', CreateDict())
     waveform_kwargs["TidalLambda1"] = lambda_1
     waveform_kwargs["TidalLambda2"] = lambda_2
-    waveform_kwargs["NumRelData"] = waveform_kwargs.pop("numerical_relativity_data", None)
+    waveform_kwargs["NumRelData"] = waveform_kwargs.pop("numerical_relativity_file", None)
 
     for key in [
         "pn_spin_order", "pn_tidal_order", "pn_phase_order", "pn_amplitude_order"
@@ -528,6 +608,7 @@ def set_waveform_dictionary(waveform_kwargs, lambda_1=0, lambda_2=0):
     if mode_array is not None:
         mode_array_lal = lalsim.SimInspiralCreateModeArray()
         for mode in mode_array:
+            mode = tuple(map(safe_cast_mode_to_int, mode))
             lalsim.SimInspiralModeArrayActivateMode(mode_array_lal, mode[0], mode[1])
         lalsim.SimInspiralWaveformParamsInsertModeArray(waveform_dictionary, mode_array_lal)
     return waveform_dictionary

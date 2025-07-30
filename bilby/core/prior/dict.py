@@ -441,10 +441,43 @@ class PriorDict(dict):
         return [k for k, p in self.items() if isinstance(p, Constraint)]
 
     def sample_subset_constrained(self, keys=iter([]), size=None):
+        """
+        Sample a subset of priors while ensuring constraints are satisfied.
+
+        Parameters
+        ==========
+        keys: list
+            List of prior keys to sample from.
+        size: int
+            The number of samples to draw.
+
+        Returns
+        =======
+        dict: Dictionary of valid samples.
+        """
+        if not any(isinstance(self[key], Constraint) for key in self):
+            return self.sample_subset(keys=keys, size=size)
+
+        efficiency_warning_was_issued = False
+
+        def check_efficiency(n_tested, n_valid):
+            nonlocal efficiency_warning_was_issued
+            if efficiency_warning_was_issued:
+                return
+            efficiency = n_valid / float(n_tested)
+            if n_tested >= 1e3 and efficiency < 1e-3:
+                logger.warning("Prior sampling efficiency is very low, please verify its validity.")
+                efficiency_warning_was_issued = True
+
+        n_tested_samples, n_valid_samples = 0, 0
         if size is None or size == 1:
             while True:
                 sample = self.sample_subset(keys=keys, size=size)
-                if self.evaluate_constraints(sample):
+                is_valid = self.evaluate_constraints(sample)
+                n_tested_samples += 1
+                n_valid_samples += int(is_valid)
+                check_efficiency(n_tested_samples, n_valid_samples)
+                if is_valid:
                     return sample
         else:
             needed = np.prod(size)
@@ -460,6 +493,9 @@ class PriorDict(dict):
                     all_samples[key] = np.hstack(
                         [all_samples[key], samples[key][keep].flatten()]
                     )
+                n_tested_samples += needed
+                n_valid_samples += np.sum(keep)
+                check_efficiency(n_tested_samples, n_valid_samples)
             all_samples = {
                 key: np.reshape(all_samples[key][:needed], size) for key in keys
             }

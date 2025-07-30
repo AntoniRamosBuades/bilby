@@ -1,7 +1,18 @@
 import numpy as np
-from scipy.special import erfinv
-from scipy.special._ufuncs import xlogy, erf, log1p, stdtrit, gammaln, stdtr, \
-    btdtri, betaln, btdtr, gammaincinv, gammainc
+from scipy.special import (
+    xlogy,
+    erf,
+    erfinv,
+    log1p,
+    stdtrit,
+    gammaln,
+    stdtr,
+    betaln,
+    betainc,
+    betaincinv,
+    gammaincinv,
+    gammainc,
+)
 
 from .base import Prior
 from ..utils import logger
@@ -967,7 +978,7 @@ class Beta(Prior):
 
         This maps to the inverse CDF. This has been analytically solved for this case.
         """
-        return btdtri(self.alpha, self.beta, val) * (self.maximum - self.minimum) + self.minimum
+        return betaincinv(self.alpha, self.beta, val) * (self.maximum - self.minimum) + self.minimum
 
     def prob(self, val):
         """Return the prior probability of val.
@@ -1014,10 +1025,12 @@ class Beta(Prior):
             elif val < self.minimum:
                 return 0.
             else:
-                return btdtr(self.alpha, self.beta,
-                             (val - self.minimum) / (self.maximum - self.minimum))
+                return betainc(
+                    self.alpha, self.beta,
+                    (val - self.minimum) / (self.maximum - self.minimum)
+                )
         else:
-            _cdf = np.nan_to_num(btdtr(self.alpha, self.beta,
+            _cdf = np.nan_to_num(betainc(self.alpha, self.beta,
                                  (val - self.minimum) / (self.maximum - self.minimum)))
             _cdf[val < self.minimum] = 0.
             _cdf[val > self.maximum] = 1.
@@ -1426,16 +1439,15 @@ class FermiDirac(Prior):
             return lnp
 
 
-class Categorical(Prior):
-    def __init__(self, ncategories, name=None, latex_label=None,
+class DiscreteValues(Prior):
+    def __init__(self, values, name=None, latex_label=None,
                  unit=None, boundary="periodic"):
-        """ An equal-weighted Categorical prior
+        """ An equal-weighted discrete-valued prior
 
         Parameters
         ==========
-        ncategories: int
-            The number of available categories. The prior mass support is then
-            integers [0, ncategories - 1].
+        values: array
+            The discrete values of the prior.
         name: str
             See superclass
         latex_label: str
@@ -1443,21 +1455,21 @@ class Categorical(Prior):
         unit: str
             See superclass
         """
-
-        minimum = 0
+        nvalues = len(values)
+        minimum = np.min(values)
         # Small delta added to help with MCMC walking
-        maximum = ncategories - 1 + 1e-15
-        super(Categorical, self).__init__(
+        maximum = np.max(values) * (1 + 1e-15)
+        super(DiscreteValues, self).__init__(
             name=name, latex_label=latex_label, minimum=minimum,
             maximum=maximum, unit=unit, boundary=boundary)
-        self.ncategories = ncategories
-        self.categories = np.arange(self.minimum, self.maximum)
-        self.p = 1 / self.ncategories
-        self.lnp = -np.log(self.ncategories)
+        self.nvalues = nvalues
+        self.values = np.sort(np.array(values))
+        self.p = 1 / self.nvalues
+        self.lnp = -np.log(self.nvalues)
 
     def rescale(self, val):
         """
-        'Rescale' a sample from the unit line element to the categorical prior.
+        'Rescale' a sample from the unit line element to the discrete-value prior.
 
         This maps to the inverse CDF. This has been analytically solved for this case.
 
@@ -1470,7 +1482,8 @@ class Categorical(Prior):
         =======
         Union[float, array_like]: Rescaled probability
         """
-        return np.floor(val * (1 + self.maximum))
+        idx = np.asarray(np.floor(val * self.nvalues), dtype=int)
+        return self.values[idx]
 
     def prob(self, val):
         """Return the prior probability of val.
@@ -1484,14 +1497,14 @@ class Categorical(Prior):
         float: Prior probability of val
         """
         if isinstance(val, (float, int)):
-            if val in self.categories:
+            if val in self.values:
                 return self.p
             else:
                 return 0
         else:
             val = np.atleast_1d(val)
             probs = np.zeros_like(val, dtype=np.float64)
-            idxs = np.isin(val, self.categories)
+            idxs = np.isin(val, self.values)
             probs[idxs] = self.p
             return probs
 
@@ -1508,16 +1521,38 @@ class Categorical(Prior):
 
         """
         if isinstance(val, (float, int)):
-            if val in self.categories:
+            if val in self.values:
                 return self.lnp
             else:
                 return -np.inf
         else:
             val = np.atleast_1d(val)
             probs = -np.inf * np.ones_like(val, dtype=np.float64)
-            idxs = np.isin(val, self.categories)
+            idxs = np.isin(val, self.values)
             probs[idxs] = self.lnp
             return probs
+
+
+class Categorical(DiscreteValues):
+    def __init__(self, ncategories, name=None, latex_label=None,
+                 unit=None, boundary="periodic"):
+        """ An equal-weighted Categorical prior
+
+        Parameters
+        ==========
+        ncategories: int
+            The number of available categories. The prior mass support is then
+            integers [0, ncategories - 1].
+        name: str
+            See superclass
+        latex_label: str
+            See superclass
+        unit: str
+            See superclass
+        """
+        values = np.arange(0, ncategories)
+        DiscreteValues.__init__(self, values=values, name=name, latex_label=latex_label,
+                                unit=unit, boundary=boundary)
 
 
 class Triangular(Prior):

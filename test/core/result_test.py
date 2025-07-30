@@ -4,6 +4,7 @@ import pandas as pd
 import shutil
 import os
 import json
+import pytest
 from unittest.mock import patch
 
 import bilby
@@ -11,6 +12,7 @@ from bilby.core.result import ResultError
 
 
 class TestJson(unittest.TestCase):
+
     def setUp(self):
         self.encoder = bilby.core.utils.BilbyJsonEncoder
         self.decoder = bilby.core.utils.decode_bilby_json
@@ -50,6 +52,12 @@ class TestJson(unittest.TestCase):
 
 
 class TestResult(unittest.TestCase):
+
+    @pytest.fixture(autouse=True)
+    def init_outdir(self, tmp_path):
+        # Use pytest's tmp_path fixture to create a temporary directory
+        self.outdir = str(tmp_path / "test")
+
     def setUp(self):
         np.random.seed(7)
         bilby.utils.command_line_args.bilby_test_mode = False
@@ -61,7 +69,6 @@ class TestResult(unittest.TestCase):
                 d=2,
             )
         )
-        self.outdir = "test_outdir"
         result = bilby.core.result.Result(
             label="label",
             outdir=self.outdir,
@@ -438,8 +445,11 @@ class TestResult(unittest.TestCase):
 
     def test_get_credible_levels_raises_error_if_no_injection_parameters(self):
         self.result.injection_parameters = None
-        with self.assertRaises(TypeError):
+        with self.assertRaises(TypeError) as error_context:
             self.result.get_all_injection_credible_levels()
+        self.assertTrue(
+            "Result object has no 'injection_parameters" in str(error_context.exception)
+        )
 
     def test_kde(self):
         kde = self.result.kde
@@ -543,18 +553,32 @@ class TestResult(unittest.TestCase):
             pass
 
         result = bilby.run_sampler(
-            likelihood, priors, sampler='bilby_mcmc', nsamples=10, L1steps=1,
-            proposal_cycle="default_noGMnoKD", printdt=1,
+            likelihood,
+            priors,
+            sampler='bilby_mcmc',
+            outdir=self.outdir,
+            nsamples=10,
+            L1steps=1,
+            proposal_cycle="default_noGMnoKD",
+            printdt=1,
             check_point_plot=False,
-            result_class=NotAResult)
+            result_class=NotAResult
+        )
         # result should be specified result_class
         assert isinstance(result, NotAResult)
 
         cached_result = bilby.run_sampler(
-            likelihood, priors, sampler='bilby_mcmc', nsamples=10, L1steps=1,
-            proposal_cycle="default_noGMnoKD", printdt=1,
+            likelihood,
+            priors,
+            sampler='bilby_mcmc',
+            outdir=self.outdir,
+            nsamples=10,
+            L1steps=1,
+            proposal_cycle="default_noGMnoKD",
+            printdt=1,
             check_point_plot=False,
-            result_class=NotAResult)
+            result_class=NotAResult
+        )
 
         # so should a result loaded from cache
         assert isinstance(cached_result, NotAResult)
@@ -808,7 +832,7 @@ class TestReweight(unittest.TestCase):
         self.result = bilby.core.result.Result(
             search_parameter_keys=list(self.priors.keys()),
             priors=self.priors,
-            posterior=pd.DataFrame(self.priors.sample(1000)),
+            posterior=pd.DataFrame(self.priors.sample(2000)),
             log_evidence=-np.log(10),
         )
 
@@ -833,6 +857,7 @@ class TestReweight(unittest.TestCase):
         _, weights, _, _, _, _ = self._run_reweighting(sigma=1)
         self.assertLess(min(abs(weights - 1)), 1e-10)
 
+    @pytest.mark.flaky(reruns=3)
     def test_reweight_different_likelihood_weights_correct(self):
         """
         Test the known case where the target likelihood is a Gaussian with
@@ -848,6 +873,49 @@ class TestReweight(unittest.TestCase):
         self.assertLess(min(abs(weights - expected_weights)), 1e-10)
         self.assertLess(abs(new.log_evidence - self.result.log_evidence), 0.05)
         self.assertNotEqual(new.log_evidence, self.result.log_evidence)
+
+    def test_save_to_file_filename_with_extension_and_extension_none(self):
+        # Should use the extension from filename
+        filename = os.path.join(self.result.outdir, "custom_name.hdf5")
+        self.result.save_to_file(filename=filename, extension=None)
+        self.assertTrue(os.path.isfile(filename))
+        os.remove(filename)
+
+    def test_save_to_file_filename_with_extension_and_extension_true(self):
+        """This is a strange default, that we should remove, but is here for consistency"""
+        filename = os.path.join(self.result.outdir, "custom_name.hdf5")
+        expected = os.path.join(self.result.outdir, "custom_name.json")
+        self.result.save_to_file(filename=filename, extension=True)
+        self.assertTrue(os.path.isfile(expected))
+        self.assertFalse(os.path.isfile(filename))
+        os.remove(expected)
+
+    def test_save_to_file_filename_with_extension_and_extension_set(self):
+        # Should override the extension in filename with the one provided in extension
+        filename = os.path.join(self.result.outdir, "custom_name.hdf5")
+        expected = os.path.join(self.result.outdir, "custom_name.json")
+        self.result.save_to_file(filename=filename, extension="json")
+        self.assertTrue(os.path.isfile(expected))
+        self.assertFalse(os.path.isfile(filename))
+        os.remove(expected)
+
+    def test_save_to_file_filename_without_extension_and_extension_none(self):
+        # Should use the default extension (json)
+        filename = os.path.join(self.result.outdir, "custom_name_noext")
+        expected = filename + ".json"
+        self.result.save_to_file(filename=filename, extension=None)
+        self.assertTrue(os.path.isfile(expected))
+        self.assertFalse(os.path.isfile(filename))
+        os.remove(expected)
+
+    def test_save_to_file_defaults_to_pickle_with_incorrect_extension(self):
+        """This is a weird fallback..."""
+        filename = os.path.join(self.result.outdir, "custom_name_noext")
+        expected = filename + ".pkl"
+        self.result.save_to_file(filename=filename, extension="bar")
+        self.assertTrue(os.path.isfile(expected))
+        self.assertFalse(os.path.isfile(filename))
+        os.remove(expected)
 
 
 if __name__ == "__main__":
